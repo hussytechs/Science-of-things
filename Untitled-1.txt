@@ -1,0 +1,145 @@
+//requires j-querey
+//place starting mechanism in start function;
+//repeating mechanism in repeat function
+//
+
+function Item(name, amount, cost, gives, decay, life) {
+  this.name = name;
+  this.cost = cost;
+  this.amount = amount;
+  this.gives = gives;
+  this.decay = decay;
+  this.life = life;
+  this.type = 'first';
+}
+
+Item.prototype.make = function() {
+  if (this.cost) {
+    if (this.cost != 'Can\'t Make') {
+      var costArray = this.cost.split(' or ');
+      for (var q = 0; q < costArray.length; q++) {
+        var works = true;
+        var costs = costArray[q].split(', ');
+        for (var i = 0; i < costs.length; i++) {
+          var c = costs[i].split(' ');
+          if (Store[c[1]].amount < c[0]) works = false;
+        }
+        if (works) {
+          for (var i = 0; i < costs.length; i++) {
+            var c = costs[i].split(' ');
+            Store[c[1]].amount -= c[0];
+            $('#' + c[1]).html(Game.cTB(Store[c[1]]));
+          }
+          if (this.decay > 0) {
+            this.life.push(this.decay);
+          }
+          this.add();
+        }
+      }
+    }
+  } else {
+    this.add();
+  }
+}
+
+Item.prototype.add = function(amount) {
+  amount = amount ? amount : 1;
+  this.amount += amount;
+  if (this.onMade) this.onMade();
+  $('#' + this.name).html(Game.cTB(this));
+}
+
+var Game = {
+  update: function() {
+    if (repeat) repeat();
+    for (var i in Store) {
+      this.process(Store[i]);
+    }
+  },
+  addItem: function(name, cost, gives, decay) {
+    if (!Store[name]) {
+      Store[name] = new Item(name, 0, cost, gives, decay, []);
+      $('body').append(this.cTB(Store[name]));
+      Store[name].type = 'default';
+      $('#' + name).click(function() {
+        Store[name].make();
+      });
+    }
+  },
+  lockItem: function(name, lockText) {
+    $('#' + name).attr('disabled', true);
+    $('#' + name).html(Game.cTB(Store[name]));
+    Store[name].type = 'lock';
+    Store[name].locktext = lockText;
+  },
+  unlockItem: function(name, lockText) {
+    $('#' + name).attr('disabled', false);
+    Store[name].type = 'default';
+    $('#' + name).html(Game.cTB(Store[name]));
+  },
+  cTB: function(item) {
+    if (item.type != 'lock') {
+      var cost = item.cost ? (': ' + item.cost) : '';
+    }
+    if (item.type == 'default') return item.name + cost + "<br>You have " + item.amount;
+    else if (item.type == 'first') return "<button id='" + item.name + "'>" + item.name + cost + "<br>You have " + item.amount + "</button>";
+    else if (item.type == 'lock') return item.name + ": You have " + item.amount + '<br>' + item.locktext;
+  },
+  process: function(item) {
+    if (item.gives && item.amount > 0) {
+      var param = item.gives.split(', ');
+      console.log(param);
+      console.log(param.length);
+      for (var i = 0; i < param.length; i++) {
+        console.log(param[i]);
+        var gArray = param[i].split(' ');
+        if (gArray[0] == 'gives') {
+          if (Store[gArray[2]]) Store[gArray[2]].add(Number(gArray[1]) * item.amount);
+        } else if (gArray[0] == 'makes') {
+          for (var j = 0; j < Number(gArray[1]) * item.amount; j++) {
+            if (Store[gArray[2]]) Store[gArray[2]].make();
+          }
+        } else if (gArray[0] == 'boosts') {
+          console.log(gArray[1] + ' ' + gArray[2]);
+          for (var j = 0; j < item.amount; j++) {
+            this.process(Store[gArray[1]]);
+          }
+        }
+      }
+    }
+    if (item.decay != 0 && item.decay != undefined) {
+      console.log(item.life);
+      for (var i = 0; i < item.life.length; i++) {
+        item.life[i]--;
+        if (item.life[i] == 0) {
+          item.life.splice(i, 1 + i);
+          item.amount--;
+          $('#' + item.name).html(this.cTB(item));
+        }
+      }
+    }
+  }
+}
+
+var Store = {
+
+}
+
+function init() {
+  window.setInterval(function() {
+    Game.update();
+  }, 1000);
+  /*Game.addItem('Money');
+  Game.addItem('Unit','10 Money');
+  Game.addItem('Cow','15 Money');
+  Game.addItem('Castle','1 Unit','gives 1 Money ps, gives 1 Cow ps');
+  Game.addItem('Kingdom','100 Castle','gives 100 Unit ps');
+  Game.addItem('Farmer','8 Castle','makes 1 Unit ps');
+  Game.addItem('Builder','8 Castle','makes 1 Castle ps');
+  Game.addItem('Govene r','1 Kingdom','makes 1 Kingdom ps');
+  Game.addItem('Hat','2 Money, 1 Unit','boosts Farmer 2, boosts Builder 2',3);
+  Game.addItem('Crown','2 Unit');*/
+  if (start) start();
+}
+
+$(document).ready(init);
